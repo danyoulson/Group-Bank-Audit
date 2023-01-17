@@ -2,6 +2,8 @@ package com.example;
 
 import com.google.inject.Provides;
 import javax.inject.Inject;
+
+import com.google.protobuf.Internal;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.coords.LocalPoint;
@@ -19,7 +21,9 @@ import org.apache.commons.lang3.ObjectUtils;
 
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -44,6 +48,8 @@ public class ExamplePlugin extends Plugin
 		private static final int DEPOSIT_EQUIPMENT = 12582918;
 		private static final int CHATBOX_ENTERED = 681;
 		private static final int GROUP_STORAGE_LOADER = 293;
+		public static List<ItemContainerItem> beforeItems = new ArrayList<>();
+		public static List<ItemContainerItem> afterItems = new ArrayList<>();
 
 		@Override
 		protected void startUp() throws Exception {
@@ -88,17 +94,17 @@ public class ExamplePlugin extends Plugin
 		@Subscribe
 		public void onGameTick(GameTick gameTick) throws InterruptedException {
 			--itemsDeposited;
-			updateInteracting();
-
 			Widget groupStorageLoaderText = client.getWidget(GROUP_STORAGE_LOADER, 1);
 			if (groupStorageLoaderText != null) {
-				if (groupStorageLoaderText.getText().equalsIgnoreCase("saving...")) {
-					log.info("changes have been made");
-					//dataManager.getSharedBank().mostRecentState().;
+				if (groupStorageLoaderText.getText().equalsIgnoreCase("saving...")) {//need to do calc here, after
+					//log.info("changes have been made");
+					afterItems = dataManager.getSharedBank().mostRecentState().getItems();
+					getDifference(beforeItems, afterItems);
 					//TODO save all items in inventory at the end
 				}
-				else if(groupStorageLoaderText.getText().equalsIgnoreCase("loading group storage...")){
-					log.info("opening the group storage");
+				else if(groupStorageLoaderText.getText().equalsIgnoreCase("loading group storage...")){//before
+					//log.info("opening the group storage");
+					beforeItems = dataManager.getSharedBank().mostRecentState().getItems();
 					//TODO save all items in inventory at the start
 				}
 			}
@@ -116,12 +122,12 @@ public class ExamplePlugin extends Plugin
 			if (doNotUseThisData())
 				return;
 			String playerName = client.getLocalPlayer().getName();
-			log.info("Player name changing container: "+playerName.toString());
+			//log.info("Player name changing container: "+playerName.toString());
 			final int id = event.getContainerId();
 			ItemContainer container = event.getItemContainer();
 
 			if (id == InventoryID.INVENTORY.getId()) {
-				log.info("Inventory accessed");
+				//log.info("Inventory accessed");
 				ItemContainerState newInventoryState = new ItemContainerState(playerName, container, itemManager, 28);
 				if (itemsDeposited > 0) {
 					updateDeposited(newInventoryState, (ItemContainerState) dataManager.getInventory().mostRecentState());
@@ -129,12 +135,12 @@ public class ExamplePlugin extends Plugin
 
 				dataManager.getInventory().update(newInventoryState);
 			} else if (id == InventoryID.GROUP_STORAGE.getId()) {
-				log.info("Group Bank accessed");
+				//log.info("Group Bank accessed");
 				dataManager.getSharedBank().update(new ItemContainerState(playerName, container, itemManager));
 
 				ArrayList<Object> myItems = new ArrayList<>();
 				myItems.add(dataManager.getSharedBank().mostRecentState().get());
-				log.info(myItems.toString());
+				//log.info(myItems.toString());
 			}
 		}
 
@@ -156,12 +162,6 @@ public class ExamplePlugin extends Plugin
 			}
 		}
 
-		@Subscribe
-		private void onInteractingChanged(InteractingChanged event) {
-			if (event.getSource() != client.getLocalPlayer()) return;
-			updateInteracting();
-		}
-
 		private void itemsMayHaveBeenDeposited() {
 			// NOTE: In order to determine if an item has gone through the deposit box we first detect if any of the menu
 			// actions were performed OR a custom amount was entered while the deposit box inventory widget was opened.
@@ -171,19 +171,6 @@ public class ExamplePlugin extends Plugin
 			// box window is open in the item container event since it is possible for a player to close the widget before
 			// the event handler is called.
 			itemsDeposited = 2;
-		}
-
-		private void updateInteracting() {
-			Player player = client.getLocalPlayer();
-
-			if (player != null) {
-				Actor actor = player.getInteracting();
-
-				if (actor != null) {
-					String playerName = player.getName();
-					dataManager.getInteracting().update(new InteractingState(playerName, actor, client));
-				}
-			}
 		}
 
 		private void updateDeposited(ItemContainerState newState, ItemContainerState previousState) {
@@ -198,5 +185,22 @@ public class ExamplePlugin extends Plugin
 		@Provides
 		GroupIronmenTrackerConfig provideConfig(ConfigManager configManager) {
 			return configManager.getConfig(GroupIronmenTrackerConfig.class);
+		}
+
+		private List<ItemContainerItem> getDifference(List<ItemContainerItem> beforeItems, List<ItemContainerItem> afterItems) {
+			List<ItemContainerItem> itemDifference = new ArrayList<>();
+			Map<Integer,Integer> beforeItemIds = new HashMap<>();
+			for (ItemContainerItem items:beforeItems
+				 ) {
+				beforeItemIds.put(items.getId(), items.getQuantity());
+			}
+			Map<Integer,Integer> afterItemIds = new HashMap<>();
+			for (ItemContainerItem items:afterItems
+			) {
+				afterItemIds.put(items.getId(),items.getQuantity());
+			}
+			log.info("Before Items:\n "+beforeItemIds.toString());
+			log.info("After Items:\n "+afterItemIds.toString());
+			return itemDifference;
 		}
 }

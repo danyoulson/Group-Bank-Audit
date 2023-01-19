@@ -3,11 +3,8 @@ package com.example;
 import com.google.inject.Provides;
 import javax.inject.Inject;
 
-import com.google.protobuf.Internal;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
-import net.runelite.api.coords.LocalPoint;
-import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
@@ -17,20 +14,18 @@ import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.task.Schedule;
-import org.apache.commons.lang3.ObjectUtils;
 
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @PluginDescriptor(
 	name = "Example"
 )
-public class ExamplePlugin extends Plugin
+public class GroupBankAudit extends Plugin
 {
 		@Inject
 		private Client client;
@@ -122,19 +117,10 @@ public class ExamplePlugin extends Plugin
 			if (doNotUseThisData())
 				return;
 			String playerName = client.getLocalPlayer().getName();
-			//log.info("Player name changing container: "+playerName.toString());
 			final int id = event.getContainerId();
 			ItemContainer container = event.getItemContainer();
 
-			if (id == InventoryID.INVENTORY.getId()) {
-				//log.info("Inventory accessed");
-				ItemContainerState newInventoryState = new ItemContainerState(playerName, container, itemManager, 28);
-				if (itemsDeposited > 0) {
-					updateDeposited(newInventoryState, (ItemContainerState) dataManager.getInventory().mostRecentState());
-				}
-
-				dataManager.getInventory().update(newInventoryState);
-			} else if (id == InventoryID.GROUP_STORAGE.getId()) {
+			if (id == InventoryID.GROUP_STORAGE.getId()) {
 				//log.info("Group Bank accessed");
 				dataManager.getSharedBank().update(new ItemContainerState(playerName, container, itemManager));
 
